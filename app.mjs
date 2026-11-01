@@ -1,6 +1,7 @@
 import {listAnime,animeDetails,getTitle,safeUrl,plainDescription,serializeFavorite,normalizeFavorites} from './api.mjs';
 import {googleConfigured,initGoogle,signInGoogle,signOutGoogle} from './google-login.mjs';
 import {safeKey} from './login-utils.mjs';
+import {showTomato,searchTomato,showTomatoAnime,showTomatoWatch} from './tomato-players.mjs';
 
 const main=document.querySelector('#main');
 const $=selector=>document.querySelector(selector);
@@ -40,7 +41,7 @@ function metadataNote(){return '<p class="source-note">Metadados públicos forne
 async function home(){
  const req=newRequest();spinner('Buscando animes em destaque…');
  try{const data=await listAnime({signal:req.signal});if(!isCurrent(req.id))return;
- main.innerHTML=`<section class="hero"><div><span class="eyebrow">EDIÇÃO WEB INDEPENDENTE</span><h1>Teu próximo anime começa aqui.</h1><p>Pesquisa, detalhes e favoritos sem cadastro, sem CAPTCHA e sem aquele festival de erro 500.</p><a class="cta" href="#search">Pesquisar animes</a></div><div class="hero-art" aria-hidden="true"><div class="orb"></div></div></section><section class="section"><div class="row between"><h2>Em alta</h2><a class="muted-link" href="#search">Explorar todos</a></div>${row(data.items)}</section>${metadataNote()}`;
+ main.innerHTML=`<section class="hero"><div><span class="eyebrow">EDIÇÃO WEB INDEPENDENTE</span><h1>Teu próximo anime começa aqui.</h1><p>Pesquisa, detalhes e favoritos sem cadastro, sem CAPTCHA e sem aquele festival de erro 500.</p><a class="cta" href="#search">Pesquisar animes</a> <a class="cta tm-cta" href="#tomato">Players Tomato</a></div><div class="hero-art" aria-hidden="true"><div class="orb"></div></div></section><section class="section"><div class="row between"><h2>Em alta</h2><a class="muted-link" href="#search">Explorar todos</a></div>${row(data.items)}</section>${metadataNote()}`;
  }catch(error){if(isCurrent(req.id)&&error.name!=='AbortError')errorBox(error)}
 }
 function searchMarkup(q,items=[],page=1,hasNext=false){
@@ -62,7 +63,7 @@ async function details(id){
  const req=newRequest();spinner('Abrindo detalhes…');
  try{const m=await animeDetails(id,{signal:req.signal});if(!isCurrent(req.id))return;
  const title=getTitle(m),fav=isSaved(m.id),description=plainDescription(m.description),year=m.seasonYear||'Não informado',score=m.averageScore||'Não informado',episodes=m.episodes||'Não informado';
- main.innerHTML=`<a class="muted-link" href="#search">‹ Voltar à busca</a><section class="anime-detail"><div class="detail-poster poster">${cover(safeMediaImage(m),title)}</div><div><span class="eyebrow">DETALHES DO ANIME</span><h1 class="detail-title">${escapeHtml(title)}</h1><p class="detail-meta">${escapeHtml(year)} · ${escapeHtml(m.format||'Anime')} · ${escapeHtml(episodes)} episódios · Nota ${escapeHtml(score)}${Number.isFinite(score)?'%':''}</p><div class="tags">${(m.genres||[]).slice(0,6).map(g=>`<span>${escapeHtml(g)}</span>`).join('')}</div><p>${escapeHtml(description||'Sinopse indisponível em português no catálogo.')}</p><button id="detail-save" class="primary" type="button">${fav?'Remover da minha lista':'Salvar na minha lista'}</button> <a class="muted-link" href="${escapeHtml(safeUrl(m.siteUrl)||'https://anilist.co')}" target="_blank" rel="noopener noreferrer">Ver no AniList ↗</a></div></section>${providerLinks(m)}${metadataNote()}`;
+ main.innerHTML=`<a class="muted-link" href="#search">‹ Voltar à busca</a><section class="anime-detail"><div class="detail-poster poster">${cover(safeMediaImage(m),title)}</div><div><span class="eyebrow">DETALHES DO ANIME</span><h1 class="detail-title">${escapeHtml(title)}</h1><p class="detail-meta">${escapeHtml(year)} · ${escapeHtml(m.format||'Anime')} · ${escapeHtml(episodes)} episódios · Nota ${escapeHtml(score)}${Number.isFinite(score)?'%':''}</p><div class="tags">${(m.genres||[]).slice(0,6).map(g=>`<span>${escapeHtml(g)}</span>`).join('')}</div><p>${escapeHtml(description||'Sinopse indisponível em português no catálogo.')}</p><button id="detail-save" class="primary" type="button">${fav?'Remover da minha lista':'Salvar na minha lista'}</button> <a class="muted-link" href="${escapeHtml(safeUrl(m.siteUrl)||'https://anilist.co')}" target="_blank" rel="noopener noreferrer">Ver no AniList ↗</a></div></section><section class="section"><h2>Players do Tomato</h2><p>Pesquisar este titulo nos servidores original e alternativo. Acesso ao video depende da permissao concedida pela API.</p><a class="cta tm-cta" href="#tomato?q=${encodeURIComponent(title)}">Abrir servidores Tomato</a></section>${providerLinks(m)}${metadataNote()}`;
  $('#detail-save').onclick=()=>{const added=storeFavorite(m);$('#detail-save').textContent=added?'Remover da minha lista':'Salvar na minha lista'};
  }catch(error){if(isCurrent(req.id)&&error.name!=='AbortError')errorBox(error)}
 }
@@ -85,8 +86,8 @@ function account(){
 }
 
 async function route(){
- const [pageAndQuery,id]=location.hash.replace(/^#/,'').split('/');const [page,queryString]=String(pageAndQuery||'home').split('?');setNavigation(['home','search','saved','account'].includes(page)?page:'');
- if(page==='account')return account();if(page==='saved')return saved();if(page==='anime'&&id)return details(decodeURIComponent(id));if(page==='search'){const p=new URLSearchParams(queryString||'');return search(p.get('q')||'',1)}return home();
+ const [pageAndQuery,id]=location.hash.replace(/^#/,'').split('/');const [page,queryString]=String(pageAndQuery||'home').split('?');setNavigation(page.startsWith('tomato')?'tomato':['home','search','saved','account'].includes(page)?page:'');
+ if(page==='tomato'){const p=new URLSearchParams(queryString||'');return p.has('q')?searchTomato(p.get('q')||''):showTomato();}if(page==='tomato-anime'&&id)return showTomatoAnime(decodeURIComponent(id));if(page==='tomato-watch'&&id)return showTomatoWatch(decodeURIComponent(id));if(page==='account')return account();if(page==='saved')return saved();if(page==='anime'&&id)return details(decodeURIComponent(id));if(page==='search'){const p=new URLSearchParams(queryString||'');return search(p.get('q')||'',1)}return home();
 }
 // Favorite buttons work in every list, including after paging.
 main.addEventListener('click',async event=>{

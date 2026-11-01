@@ -1,6 +1,6 @@
-# Tomato Mobile Web | Google Login via Firebase
+# Tomato Mobile Web | Google Login + Players Tomato
 
-Esta versao substitui a autenticacao OAuth quebrada do APK Android do Tomato por **Firebase Authentication + Google** para o SEU site. O perfil pode entrar com Google, sair e recuperar a sessao automaticamente apos recarregar a pagina. **Nao autentica no Tomato nem desbloqueia os episodios do Tomato.**
+Esta versao substitui a autenticacao OAuth quebrada do APK Android do Tomato por **Firebase Authentication + Google** para o SEU site. O perfil pode entrar com Google, sair e recuperar a sessao automaticamente apos recarregar a pagina. **Google nao autentica no Tomato. A aba Players inclui a integracao experimental com os servidores do Tomato, mas so reproduz fontes liberadas pelo proprio servidor.**
 
 ## CONFIGURACAO OBRIGATORIA (10 passos)
 
@@ -44,7 +44,7 @@ O APK Android continha um OAuth Client ID Google cadastrado no projeto do Tomato
 
 - O login REAL com Google eh gerenciado pelo Firebase Auth, nao pelo armazenamento local. A sessao do Firebase persiste no navegador; o token ID nao eh gravado por nosso codigo em `localStorage`.
 - Favoritos e apelido sao armazenados apenas no navegador, separados por identificador da conta Google. **Nao sincronizam com outros aparelhos** e podem sumir ao limpar dados do site.
-- A busca publica continua sendo feita na API AniList. Nao ha acesso a videos ou API do Tomato.
+- A busca publica continua sendo feita na API AniList. A aba Players consulta a API Tomato separadamente, sem sessao Google e sem promessa de acesso.
 - Nao inclua credenciais privadas no GitHub. A configuracao Web do Firebase e publica, mas proteja corretamente quaisquer regras e servicos Firebase ativados.
 
 ### Hospedagem no GitHub Pages
@@ -58,3 +58,17 @@ Execute `INICIAR.bat` ou `npm start` e abra `http://localhost:3000`. O Google ex
 ### Testes locais
 
 `npm test`. Testes automatizados nao substituem um login real: so o dono do projeto Firebase pode cadastrar o dominio e completar o fluxo ao vivo.
+
+## Players do Tomato (restaurados nesta versao)
+
+A aba **Players** voltou. Usa os dois enderecos presentes no codigo antigo:
+- Principal: `https://prod-api.tomatoanimes.com`
+- Alternativo: `https://edge.betomato.com`
+
+Rotas consultadas: `POST /v2/content/search` (pesquisa); `GET /v2/anime/:id` (temporadas); `GET /v3/seasons/:id/episodes?...` (episodios); `GET /v2/anime/episode/:id/stream` (qualidades e URL do video). O site nao exibe nenhuma etapa local obrigatoria de cadastro ou CAPTCHA para abrir a aba. O Firebase Google Login segue opcional e **nao** autentica no Tomato.
+
+**Aviso essencial:** nao ha sessao publica confirmada para catalogo e streams. O servidor Tomato ja devolveu `authentication failed` em acessos anonimos. Se a origem exigir login, o site mostra a mensagem. Nao ha bypass de controles do Tomato e esta versao nao promete reproducao, mesmo que os controles de player estejam restaurados. Links de video devolvidos e liberados pelo servidor sao tentados em `<video>` com suporte nativo do navegador.
+
+No `localhost` o Node intermedeia somente estas rotas (sem repassar senhas, cookies ou tokens; destinos fixos; sem proxy de arquivo de video). No GitHub Pages nao existe Node: o navegador consulta diretamente os servidores e pode sofrer bloqueio CORS. Para ter um proxy em um site publico, hospede o Node em um servico adequado e implemente configuracao de origem; nao use GitHub Pages como se ele executasse backend.
+
+Para testar: `npm test`, depois `npm start`, abra `http://localhost:3000`, entre em **Players** e tente pesquisar um titulo. A busca padrao de informacoes continua sendo AniList. IDs de animes AniList nao correspondem aos IDs do Tomato, por isso o botao nos detalhes abre a pesquisa pelo titulo, nao inventa um ID.
