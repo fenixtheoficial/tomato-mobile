@@ -10,7 +10,7 @@ export class TomatoError extends Error {
 }
 export function validTomatoRoute(path,method='GET'){
  if(typeof path!=='string'||path.length>240)return false;
- if(method==='POST')return path==='/v2/content/search';
+ if(method==='POST')return ['/v2/content/search','/v3/auth/login','/v3/auth/refresh'].includes(path);
  if(method!=='GET')return false;
  return /^\/v2\/anime\/(?:[\w-]{1,96}|episode\/[\w-]{1,96}\/stream)$/.test(path)
   || /^\/v3\/seasons\/[\w-]{1,96}\/episodes\?order=asc&limit=25&offset=\d{1,6}$/.test(path);
@@ -43,14 +43,14 @@ export function tomatoEpisodes(data){
   id:String(x.id??x.episode_id??''),title:String(x.name??x.episode_name??x.title??`Episódio ${x.number??''}`),number:x.number??x.episode_number??'?'
  })).filter(x=>/^[\w-]{1,96}$/.test(x.id));
 }
-export async function tomatoRequest(path,{server='principal',body,signal,fetcher=fetch,localProxy=false}={}){
+export async function tomatoRequest(path,{server='principal',body,signal,token,fetcher=fetch,localProxy=false}={}){
  const chosen=TOMATO_SERVERS.find(x=>x.id===server);
  const method=body?'POST':'GET';
  if(!chosen||!validTomatoRoute(path,method))throw new TomatoError('Rota de consulta invalida.');
  const url=localProxy?`/api/tomato?server=${encodeURIComponent(server)}&path=${encodeURIComponent(path)}`:chosen.url+path;
  let response;
  try{
-  response=await fetcher(url,{method,headers:{Accept:'application/json',...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{}),signal,credentials:'omit',cache:'no-store'});
+  response=await fetcher(url,{method,headers:{Accept:'application/json',...(body?{'Content-Type':'application/json'}:{}),...(token?{'Authorization':`Bearer ${token}`}:{})},...(body?{body:JSON.stringify(body)}:{}),signal,credentials:'omit',cache:'no-store'});
  }catch(err){
   if(signal?.aborted)throw err;
   throw new TomatoError(localProxy?'Nao foi possivel acessar o proxy local. Confere se o Node esta rodando.':'O navegador nao conseguiu consultar o Tomato. Pode ser CORS, rede ou servidor indisponivel. No GitHub Pages nao existe proxy Node.');
@@ -59,12 +59,12 @@ export async function tomatoRequest(path,{server='principal',body,signal,fetcher
  try{text=await response.text()}catch{throw new TomatoError('A resposta da API nao pode ser lida.',response.status)}
  let data;
  try{data=JSON.parse(text)}catch{
-  if(response.status===401||response.status===403)throw new TomatoError('O servidor nao autorizou o acesso. Precisa de uma sessao reconhecida pelo Tomato.',response.status);
+  if(response.status===401||response.status===403)throw new TomatoError('A API Tomato rejeitou a autenticacao ou exige uma sessao valida.',response.status);
   throw new TomatoError(`O Tomato devolveu HTTP ${response.status} sem JSON${/<!doctype|<html/i.test(text)?' (pagina HTML de erro)':''}. Nao e possivel corrigir o backend pelo site.`,response.status);
  }
  const status=Number(data?.status_code)||response.status;
  if(response.status===401||response.status===403||status===401||status===403||/authentication failed|unauthorized|token required|not authenticated/i.test(String(data?.message??''))){
-  throw new TomatoError('Este servidor exige uma sessao autorizada do Tomato para liberar o catalogo ou o episodio. O login Google do site nao substitui essa sessao.',status);
+  throw new TomatoError('O Tomato exige uma sessao propria valida (HTTP '+status+'). O login Google/Firebase nao substitui essa sessao.',status);
  }
  if(!response.ok||data?.status===false){
   const reason=String(data?.message??data?.error?.message??data?.error??'Erro nao especificado').slice(0,180);

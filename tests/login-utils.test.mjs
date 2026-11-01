@@ -1,0 +1,10 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {configured,safeKey,signInMessage} from '../login-utils.mjs';
+test('impede login sem Firebase configurado',()=>{assert.equal(configured(null),false);assert.equal(configured({apiKey:'',authDomain:'',projectId:'',appId:''}),false)});
+test('aceita configuracao web completa',()=>assert.equal(configured({apiKey:'AIza1234567890',authDomain:'meu-projeto.firebaseapp.com',projectId:'meu-projeto',appId:'1:12345:web:12345'}),true));
+test('rejeita configuracao com origem invalida',()=>assert.equal(configured({apiKey:'AIza1234567890',authDomain:'https://meu-projeto.firebaseapp.com',projectId:'meu-projeto',appId:'1:12345:web:12345'}),false));
+test('dados de Google e anonimos nao se misturam',()=>{assert.equal(safeKey('favorites',null),'tomato-web-favorites');assert.equal(safeKey('favorites','abcdef123'),'tomato-web-favorites-google-abcdef123');assert.equal(safeKey('profile','abcdef123'),'tomato-web-profile-google-abcdef123')});
+test('rejeita uid manipulado',()=>assert.throws(()=>safeKey('profile','../../outra-conta')));
+test('erro 401 de origem explica o conserto',()=>assert.match(signInMessage({code:'auth/unauthorized-domain'}),/Authorized domains/));
+test('popup bloqueado explica conserto',()=>assert.match(signInMessage({code:'auth/popup-blocked'}),/pop-ups/));
+test('nao inclui mensagens internas potencialmente sensiveis',()=>assert.doesNotMatch(signInMessage({code:'auth/bad-parameter',message:'TOKEN-SECRETO'}),/TOKEN-SECRETO/));

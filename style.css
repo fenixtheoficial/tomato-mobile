@@ -11,3 +11,13 @@
 .tomato-player-options{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;margin:20px 0}.tomato-player-options label{display:flex;flex-direction:column;gap:8px;font-size:14px}
 #nav-tomato.active{color:#ffb5b0}
 @media(max-width:700px){nav a{padding:9px 7px;font-size:11px}.tomato-server select{width:100%}.tomato-player-options{gap:9px}.video-shell{border-radius:8px}}
+
+/* Conta Tomato, separada da conta Google do site. */
+.tomato-auth-panel{border:1px solid var(--border);background:#1b1b20;border-radius:15px;padding:22px;margin:24px 0}
+.tomato-auth-panel h2{font-size:22px;margin:0 0 8px}.tomato-auth-panel p{max-width:740px}
+.tm-login-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;max-width:740px}
+.tm-login-form label{display:flex;flex-direction:column;gap:7px;font-size:13px}
+.tm-login-form input{width:100%}.tm-login-form>div{grid-column:1/-1}
+.tm-human{margin-top:16px}.tm-human summary{cursor:pointer}.tm-human button{margin:10px 0}
+.tm-auth-status{color:#c6eac3}.tomato-auth-panel .tiny{font-size:12px}
+@media(max-width:700px){.tomato-auth-panel{padding:16px}.tm-login-form{grid-template-columns:1fr}}
