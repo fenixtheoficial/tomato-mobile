@@ -1,1 +1,1 @@
-{"name":"Tomato Mobile Experimental","short_name":"Tomato","start_url":"./","display":"standalone","background_color":"#111113","theme_color":"#111113","icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}]}
+{"name":"Tomato Mobile - Edição Web Independente","short_name":"Tomato Web","start_url":"./#home","display":"standalone","background_color":"#111114","theme_color":"#111114","icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml"}]}
