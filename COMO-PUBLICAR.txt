@@ -1,0 +1,24 @@
+TOMATO MOBILE - ARQUIVOS PARA O GITHUB PAGES
+=============================================
+
+Publique os ARQUIVOS DESTA PASTA na raiz de um repositorio do GitHub.
+O index.html deve ficar na raiz (nao dentro da pasta dist).
+
+1. Entre em https://github.com e crie um repositorio PUBLICO, ex.: tomato-mobile.
+2. Clique em Add file > Upload files, selecione index.html, arquivos .mjs,
+   style.css, manifest.webmanifest, icon.svg e .nojekyll.
+3. Faca commit. Em Settings > Pages > Build and deployment:
+   Source = Deploy from a branch; Branch = main; Folder = /(root); Save.
+4. Abra https://SEU-USUARIO.github.io/tomato-mobile/
+
+LIMITACOES REAIS:
+- GitHub Pages nao executa server.cjs, npm start ou proxy /api/tomato/.
+- O site tenta usar a API do Tomato diretamente. O backend pode retornar HTTP 500,
+  rejeitar o dominio, bloquear CORS ou exigir tokens/autorizacoes.
+- hCaptcha e Google podem exigir aprovacao desse dominio no projeto do Tomato.
+- O diagnostico via Node nao funciona no GitHub Pages.
+- Nunca publique senhas, tokens privados ou arquivos contendo credenciais.
+- Nao inclua o APK e backups do projeto no repositorio publico.
+
+Alternativa para manter Node.js: usar servico de hospedagem de apps Node
+(Render/Railway etc.) ligado a um repositorio GitHub.
