@@ -1,12 +1,16 @@
 import {listAnime,animeDetails,getTitle,safeUrl,plainDescription,serializeFavorite,normalizeFavorites} from './api.mjs';
+import {googleConfigured,initGoogle,signInGoogle,signOutGoogle} from './google-login.mjs';
+import {safeKey} from './login-utils.mjs';
 
 const main=document.querySelector('#main');
 const $=selector=>document.querySelector(selector);
 const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const getSaved=(key,fallback)=>{try{const raw=localStorage.getItem(key);return raw===null?fallback:JSON.parse(raw)}catch{return fallback}};
 const putSaved=(key,value)=>{try{localStorage.setItem(key,JSON.stringify(value));return true}catch{notify('O navegador bloqueou o armazenamento local.');return false}};
-let favorites=normalizeFavorites(getSaved('tomato-web-favorites',[]));
-let nickname=String(getSaved('tomato-web-profile','')||'').slice(0,32);
+let googleUser=null, googleMessage=googleConfigured?'Preparando login Google…':'Google ainda não configurado. Leia o README para habilitar.';
+const currentKey=type=>safeKey(type,googleUser?.uid);
+let favorites=normalizeFavorites(getSaved(currentKey('favorites'),[]));
+let nickname=String(getSaved(currentKey('profile'),'')||'').slice(0,32);
 let serial=0,controller=null,lastQuery='',currentPage=1;
 
 function notify(message){const node=$('#toast');node.textContent=message;clearTimeout(notify.timer);notify.timer=setTimeout(()=>node.textContent='',4500)}
@@ -15,7 +19,7 @@ const isSaved=id=>favorites.some(x=>x.id===Number(id));
 function storeFavorite(m){
  const id=Number(m.id),found=isSaved(id);
  favorites=found?favorites.filter(x=>x.id!==id):[serializeFavorite(m),...favorites].slice(0,300);
- putSaved('tomato-web-favorites',favorites);
+ putSaved(currentKey('favorites'),favorites);
  notify(found?'Removido da sua lista.':'Salvo na sua lista.');return !found;
 }
 const cover=(url,label)=>url?`<img loading="lazy" src="${escapeHtml(url)}" alt="Capa de ${escapeHtml(label)}">`:'<span class="cover-fallback">Anime</span>';
@@ -63,10 +67,23 @@ async function details(id){
  }catch(error){if(isCurrent(req.id)&&error.name!=='AbortError')errorBox(error)}
 }
 function saved(){newRequest();main.innerHTML=`<span class="eyebrow">NO TEU NAVEGADOR</span><h1 class="short-title">Minha lista</h1><p>Salva apenas neste aparelho, mesmo sem conta.</p>${favorites.length?row(favorites):'<div class="empty"><h3>Sua lista ainda está vazia.</h3><p>Abre um anime na busca e salva aqui.</p><a class="cta" href="#search">Buscar animes</a></div>'}<p class="source-note">Se limpar os dados do navegador, esta lista será apagada. Não sincroniza com a conta do Tomato.</p>`}
-function account(){newRequest();main.innerHTML=`<span class="eyebrow">SEM SENHA, SEM CAPTCHA</span><h1 class="short-title">Meu perfil local</h1><section class="account-panel"><p>Este perfil funciona neste navegador e não envia seus dados para o Tomato.</p><form id="profile-form"><label for="profile-name">Como quer ser chamado?</label><input type="text" name="name" id="profile-name" minlength="1" maxlength="32" autocomplete="nickname" placeholder="Meu perfil" required value="${escapeHtml(nickname)}"><button class="primary" type="submit">Salvar perfil</button></form><p class="small">${nickname?'Perfil atual: '+escapeHtml(nickname):'Sem perfil criado ainda.'}</p></section><section class="notice"><h2>E minha conta do Tomato?</h2><p>A API de cadastro do Tomato está retornando respostas que esta integração não consegue usar. O GitHub Pages também não executa o proxy Node.js. Por isso, removi o formulário de senha e o CAPTCHA da edição pública: não vou pedir tua senha para uma integração que ainda não está validada.</p><p>O catálogo aqui vem do <a href="https://anilist.co" target="_blank" rel="noopener noreferrer">AniList</a>. É uma lista de informações sobre animes, não um catálogo de vídeos do Tomato.</p></section><button id="clear-data" class="quiet danger">Apagar meu perfil e minha lista local</button>`;
- $('#profile-form').onsubmit=e=>{e.preventDefault();const name=$('#profile-name').value.trim();if(!name||name.length>32){notify('Digite um nome de 1 a 32 caracteres.');return}nickname=name;putSaved('tomato-web-profile',nickname);notify('Perfil salvo neste navegador.');account()};
- $('#clear-data').onclick=()=>{if(!confirm('Apagar perfil e favoritos salvos neste navegador?'))return;nickname='';favorites=[];try{localStorage.removeItem('tomato-web-profile');localStorage.removeItem('tomato-web-favorites')}catch{};notify('Dados locais apagados.');account()};
+function account(){
+ newRequest();
+ const accountInfo=googleUser
+  ? `<p>Conectado como <strong>${escapeHtml(googleUser.name||googleUser.email)}</strong>${googleUser.email?' ('+escapeHtml(googleUser.email)+')':''}.</p><button id="google-out" type="button">Sair da conta Google</button>`
+  : `<button id="google-in" class="primary" type="button" ${!googleConfigured?'disabled':''}>Entrar com Google</button>`;
+ main.innerHTML=`<span class="eyebrow">GOOGLE NO SEU SITE</span><h1 class="short-title">Meu perfil</h1>
+ <section class="account-panel"><h2>Entrar com Google</h2>${accountInfo}<p class="small" id="google-feedback" role="status">${escapeHtml(googleMessage)}</p><p class="small">Login real via Firebase, com sessão persistente neste navegador. <strong>Não é uma conta Tomato</strong> e não libera vídeos protegidos.</p></section>
+ <section class="account-panel"><h2>Preferências locais</h2><p>Seu nome e favoritos ficam <strong>neste aparelho</strong>${googleUser?', separados por conta Google':''}. Não há sincronização entre dispositivos.</p><form id="profile-form"><label for="profile-name">Como quer ser chamado?</label><input type="text" name="name" id="profile-name" minlength="1" maxlength="32" autocomplete="nickname" placeholder="Meu perfil" required value="${escapeHtml(nickname)}"><button class="primary" type="submit">Salvar perfil</button></form><p class="small">${nickname?'Perfil atual: '+escapeHtml(nickname):'Sem apelido salvo ainda.'}</p></section>
+ <section class="notice"><h2>E minha conta do Tomato?</h2><p>A autenticação deste site é independente da conta Tomato. O Google autentica pessoas para o projeto Firebase configurado, mas não concede acesso automático à API do Tomato.</p><p>O catálogo de informações vem do <a href="https://anilist.co" target="_blank" rel="noopener noreferrer">AniList</a>. Não inclui episódios hospedados pelo Tomato.</p></section>
+ <button id="clear-data" class="quiet danger">Apagar perfil e lista ${googleUser?'desta conta neste navegador':'locais deste navegador'}</button>`;
+ const enter=$('#google-in'),out=$('#google-out');
+ if(enter)enter.onclick=async()=>{enter.disabled=true;$('#google-feedback').textContent='Abrindo login seguro do Google…';try{await signInGoogle()}catch(error){googleMessage=error.message;const box=$('#google-feedback');if(box)box.textContent=googleMessage;enter.disabled=false}};
+ if(out)out.onclick=async()=>{out.disabled=true;try{await signOutGoogle()}catch(error){googleMessage=error.message;const box=$('#google-feedback');if(box)box.textContent=googleMessage;out.disabled=false}};
+ $('#profile-form').onsubmit=e=>{e.preventDefault();const name=$('#profile-name').value.trim();if(!name||name.length>32){notify('Digite um nome de 1 a 32 caracteres.');return}nickname=name;putSaved(currentKey('profile'),nickname);notify('Perfil salvo neste navegador.');account()};
+ $('#clear-data').onclick=()=>{if(!confirm('Apagar perfil e favoritos desta conta salvos NESTE navegador?'))return;nickname='';favorites=[];try{localStorage.removeItem(currentKey('profile'));localStorage.removeItem(currentKey('favorites'))}catch{};notify('Dados locais apagados.');account()};
 }
+
 async function route(){
  const [pageAndQuery,id]=location.hash.replace(/^#/,'').split('/');const [page,queryString]=String(pageAndQuery||'home').split('?');setNavigation(['home','search','saved','account'].includes(page)?page:'');
  if(page==='account')return account();if(page==='saved')return saved();if(page==='anime'&&id)return details(decodeURIComponent(id));if(page==='search'){const p=new URLSearchParams(queryString||'');return search(p.get('q')||'',1)}return home();
@@ -80,3 +97,14 @@ main.addEventListener('click',async event=>{
  try{const m=await animeDetails(id);if(button.isConnected){storeFavorite(m);button.textContent='★';button.classList.add('selected');button.setAttribute('aria-label','Remover dos favoritos')}}catch(err){notify('Não foi possível salvar agora: '+err.message)}finally{if(button.isConnected)button.disabled=false}
 });
 window.addEventListener('hashchange',route);route();
+initGoogle({
+ onUser(user){
+  if(googleUser?.uid===user?.uid)return;
+  googleUser=user;
+  favorites=normalizeFavorites(getSaved(currentKey('favorites'),[]));
+  nickname=String(getSaved(currentKey('profile'),user?.name||'')||'').slice(0,32);
+  const page=location.hash.split('/')[0].split('?')[0];
+  if(['#account','#saved'].includes(page))route();
+ },
+ onStatus(message){googleMessage=message;const el=$('#google-feedback');if(el)el.textContent=message;const b=$('#google-in');if(b&&googleConfigured)b.disabled=!['Pronto para entrar com Google.'].includes(message)&&!googleUser}
+});

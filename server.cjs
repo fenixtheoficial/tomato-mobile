@@ -1,7 +1,7 @@
 'use strict';
 const http=require('node:http');const fs=require('node:fs');const path=require('node:path');const os=require('node:os');
 const ROOT=__dirname;
-const ALLOWED=new Set(['/', '/index.html','/app.mjs','/api.mjs','/style.css','/icon.svg','/manifest.webmanifest','/README.md']);
+const ALLOWED=new Set(['/', '/index.html','/app.mjs','/api.mjs','/google-login.mjs','/firebase-config.mjs','/login-utils.mjs','/style.css','/icon.svg','/manifest.webmanifest','/README.md']);
 const MIME={'.html':'text/html; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.webmanifest':'application/manifest+json; charset=utf-8','.md':'text/plain; charset=utf-8'};
 function createServer(){return http.createServer((req,res)=>{
  let pathname;try{pathname=new URL(req.url,'http://localhost').pathname;}catch{res.writeHead(400);return res.end('Invalid URL')}
